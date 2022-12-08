@@ -1,0 +1,193 @@
+---
+title: "ANOVA mémoire"
+author: "GHIRINGHELLI Pierre"
+date: "4/29/2022"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup}
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(nlme)
+library(cowplot)
+library(emmeans)
+library(cowplot)
+library(Rmisc)
+require(car)
+library(scales)
+library(multcomp)
+library(plyr)
+library(readxl)
+library(gapminder)
+
+Datas <- read_excel("Datas.xlsx")
+View(Datas)
+
+Data.S1 = filter(Datas, sujet=="1")
+Data.S2 = filter(Datas, sujet=="2")
+Data.S3 = filter(Datas, sujet=="3")
+Data.S4 = filter(Datas, sujet=="4")
+Data.S5 = filter(Datas, sujet=="5")
+Data.S6 = filter(Datas, sujet=="6")
+Data.S7 = filter(Datas, sujet=="7")
+#-------------------------------------------------------------------------------
+P.5s = filter(Datas, temps.sec=="5")
+P.5s.inter = filter(P.5s, interExter=="inter")
+P.5s.exter = filter(P.5s, interExter=="exter")
+P.5s.course = filter(P.5s, interExter=="course")
+P.5s.entrai = filter(P.5s, interExter=="entrai")
+#-------------------------------------------------------------------------------
+P.15s = filter(Datas, temps.sec=="15")
+P.15s.inter = filter(P.15s, interExter=="inter")
+P.15s.exter = filter(P.15s, interExter=="exter")
+P.15s.course = filter(P.15s, interExter=="course")
+P.15s.entrai = filter(P.15s, interExter=="entrai")
+#-------------------------------------------------------------------------------
+P.30s = filter(Datas, temps.sec=="30")
+P.30s.inter = filter(P.30s, interExter=="inter")
+P.30s.exter = filter(P.30s, interExter=="exter")
+P.30s.course = filter(P.30s, interExter=="course")
+P.30s.entrai = filter(P.30s, interExter=="entrai")
+#-------------------------------------------------------------------------------
+P.5min = filter(Datas, temps.sec=="300")
+P.5min.inter = filter(P.5min, interExter=="inter")
+P.5min.exter = filter(P.5min, interExter=="exter")
+P.5min.course = filter(P.5min, interExter=="course")
+P.5min.entrai = filter(P.5min, interExter=="entrai")
+#-------------------------------------------------------------------------------
+P.20min = filter(Datas, temps.sec=="1200")
+P.20min.inter = filter(P.20min, interExter=="inter")
+P.20min.exter = filter(P.20min, interExter=="exter")
+P.20min.course = filter(P.20min, interExter=="course")
+P.20min.entrai = filter(P.20min, interExter=="entrai")
+```
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+```{r - stats descriptives}
+
+#----------------------------------MOYENNES-------------------------------------
+
+Moyenne.P.5s.exter = mean(P.5s.exter$puissance.W)
+Moyenne.P.5s.inter = mean(P.5s.inter$puissance.W)
+Moyenne.P.5s.course = mean(P.5s.course$puissance.W)
+Moyenne.P.5s.entrai = mean(P.5s.entrai$puissance.W)
+#-------------------------------------------------------------------------------
+Moyenne.P.15s.exter = mean(P.15s.exter$puissance.W)
+Moyenne.P.15s.inter = mean(P.15s.inter$puissance.W)
+Moyenne.P.15s.course = mean(P.15s.course$puissance.W)
+Moyenne.P.15s.entrai = mean(P.15s.entrai$puissance.W)
+#-------------------------------------------------------------------------------
+Moyenne.P.30s.exter = mean(P.30s.exter$puissance.W)
+Moyenne.P.30s.inter = mean(P.30s.inter$puissance.W)
+Moyenne.P.30s.course = mean(P.30s.course$puissance.W)
+Moyenne.P.30s.entrai = mean(P.30s.entrai$puissance.W)
+#-------------------------------------------------------------------------------
+Moyenne.P.5min.exter = mean(P.5min.exter$puissance.W)
+Moyenne.P.5min.inter = mean(P.5min.inter$puissance.W)
+Moyenne.P.5min.course = mean(P.5min.course$puissance.W)
+Moyenne.P.5min.entrai = mean(P.5min.entrai$puissance.W)
+#-------------------------------------------------------------------------------
+Moyenne.P.20min.exter = mean(P.20min.exter$puissance.W)
+Moyenne.P.20min.inter = mean(P.20min.inter$puissance.W)
+Moyenne.P.20min.course = mean(P.20min.course$puissance.W)
+Moyenne.P.20min.entrai = mean(P.20min.entrai$puissance.W)
+
+```
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+````{r - ANOVA à 1 facteur sur mesures répétées}
+
+attach(Datas)
+
+# Test de normalité (Shapiro-Wilk)
+
+P.5s %>%
+  group_by(interExter) %>%
+  shapiro_test(puissance.W)
+
+P.15s %>%
+  group_by(interExter) %>%
+  shapiro_test(puissance.W)
+
+P.30s %>%
+  group_by(interExter) %>%
+  shapiro_test(puissance.W)
+
+P.5min %>%
+  group_by(interExter) %>%
+  shapiro_test(puissance.W)
+
+P.20min %>%
+  group_by(interExter) %>%
+  shapiro_test(puissance.W)
+
+ggqqplot(Datas, "puissance.W", facet.by = "interExter")
+
+# Représentation de la répartition (boxplot)
+
+bxp <- ggboxplot(Datas, x = "interExter", y = "puissance.W", add = "point")
+bxp
+
+ggplot(Datas, aes(x=as.factor(temps.sec), y = puissance.W, fill=interExter))+
+  geom_boxplot()
+
+# Utilisation de la fonction anova_test dans R qui inclut un test de Mauchly pour vérifier l'hypothèse de sphéricité ainsi qu'une correction de Greenhouse-Geisser. 
+
+fm <- lme(puissance.W ~ interExter, data=Datas, random= ~ 1 | sujet, na.action=na.exclude,method="ML")
+anova(fm)
+
+```
+
+```{r - ANOVA à 2 facteurs sur mesures répétées}
+
+attach(Datas)
+
+fm <- lme(puissance.W ~ temps.sec*interExter, data=Datas, random= ~ 1 | sujet, na.action=na.exclude,method="ML")
+anova(fm)
+library(dplyr)
+pwc <- Datas %>%
+  pairwise_t_test(
+    puissance.W ~ temps.sec, paired = TRUE,
+    p.adjust.method = "bonferroni")
+pwc
+
+```
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
+```{r - Rendu TP NOIREZ}
+
+Datas %>%
+  ggplot(aes(x=as.factor(temps.sec), y = puissance.W, fill=interExter))+
+  geom_boxplot() +
+  geom_point() +
+  geom_line(aes(group=sujet)) +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+        labels = trans_format("log10", math_format(10^.x))) +
+  stat_summary(fun="mean", color="black", shape=4)
+
+```
+
+```{r - Rendu TP NOIREZ}
+
+Datas %>%
+  ggplot(aes(x=as.factor(temps.sec), y = puissance.W, fill=interExter))+
+  geom_boxplot() +
+  geom_point() +
+  geom_line(aes(group=sujet)) +
+  scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+        labels = trans_format("log10", math_format(10^.x))) +
+  stat_summary(fun="mean", color="black", shape=4)
+
+```

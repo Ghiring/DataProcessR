@@ -1,0 +1,137 @@
+---
+title: "ANOVA mémoire"
+author: "GHIRINGHELLI Pierre"
+date: "4/29/2022"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r setup, library}
+
+library(tidyverse)
+library(ggpubr)
+library(rstatix)
+library(nlme)
+library(cowplot)
+library(emmeans)
+library(cowplot)
+library(Rmisc)
+require(car)
+library(scales)
+library(multcomp)
+library(plyr)
+library(readxl)
+library(gapminder)
+
+Datas <- read_excel("Datas.xlsx")
+
+```
+
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------
+
+````{r - ANOVA à 1 facteur sur mesures répétées}
+
+P.5s = filter(Datas, temps.sec=="5")
+P.15s = filter(Datas, temps.sec=="15")
+P.30s = filter(Datas, temps.sec=="30")
+P.5min = filter(Datas, temps.sec=="300")
+P.20min = filter(Datas, temps.sec=="1200")
+
+attach(Datas)
+require(car)
+
+# Test de normalité (Shapiro-Wilk)
+
+P.5s %>%
+  group_by(interExter) %>%
+  shapiro_test(puissance.W)
+
+P.15s %>%
+  group_by(interExter) %>%
+  shapiro_test(puissance.W)
+
+P.30s %>%
+  group_by(interExter) %>%
+  shapiro_test(puissance.W)
+
+P.5min %>%
+  group_by(interExter) %>%
+  shapiro_test(puissance.W)
+
+P.20min %>%
+  group_by(interExter) %>%
+  shapiro_test(puissance.W)
+
+# Test Lavene (égalité des variances)
+
+leveneTest(puissance.W ~ interExter, data = P.5s)
+leveneTest(puissance.W ~ interExter, data = P.15s)
+leveneTest(puissance.W ~ interExter, data = P.30s)
+leveneTest(puissance.W ~ interExter, data = P.5min)
+leveneTest(puissance.W ~ interExter, data = P.20min)
+
+# Représentations
+
+bxp <- ggboxplot(Datas, x = "interExter", y = "puissance.W", add = "point")
+bxp
+
+ggqqplot(Datas, "puissance.W", facet.by = "interExter")
+
+ggplot(Datas, aes(x=as.factor(temps.sec), y = puissance.W, fill=interExter))+
+  geom_boxplot()
+
+# Utilisation de la fonction anova_test dans R qui inclut un test de Mauchly pour vérifier l'hypothèse de sphéricité ainsi qu'une correction de Greenhouse-Geisser. 
+
+# P5sec
+fm <- lme(puissance.W ~ interExter, data=P.5s, random= ~ 1 | sujet, na.action=na.exclude,method="ML")
+anova(fm)
+library(dplyr)
+pwc <- P.5s %>%
+  pairwise_t_test(
+    puissance.W ~ interExter, paired = TRUE,
+    p.adjust.method = "bonferroni")
+pwc
+
+# P15sec
+fm <- lme(puissance.W ~ interExter, data=P.15s, random= ~ 1 | sujet, na.action=na.exclude,method="ML")
+anova(fm)
+
+# P30sec
+fm <- lme(puissance.W ~ interExter, data=P.30s, random= ~ 1 | sujet, na.action=na.exclude,method="ML")
+anova(fm)
+library(dplyr)
+pwc <- P.30s %>%
+  pairwise_t_test(
+    puissance.W ~ interExter, paired = TRUE,
+    p.adjust.method = "bonferroni")
+pwc
+
+# P5min
+fm <- lme(puissance.W ~ interExter, data=P.5min, random= ~ 1 | sujet, na.action=na.exclude,method="ML")
+anova(fm)
+library(dplyr)
+pwc <- P.5min %>%
+  pairwise_t_test(
+    puissance.W ~ interExter, paired = TRUE,
+    p.adjust.method = "bonferroni")
+pwc
+
+# P20min
+fm <- lme(puissance.W ~ interExter, data=P.20min, random= ~ 1 | sujet, na.action=na.exclude,method="ML")
+anova(fm)
+library(dplyr)
+pwc <- P.20min %>%
+  pairwise_t_test(
+    puissance.W ~ interExter, paired = TRUE,
+    p.adjust.method = "bonferroni")
+pwc
+
+```
